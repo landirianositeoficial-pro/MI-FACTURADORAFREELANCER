@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'none';">
+    <title>Sistema Financiero para Freelancers</title>
+
+    <!-- Google Fonts (versión fija e inmutable) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+    <!--
+        DEPENDENCIAS CON SUBRESOURCE INTEGRITY (SRI)
+        Versiones fijas e inmutables. Los hashes SHA-384 garantizan que
+        el navegador bloqueará la ejecución si el archivo CDN es alterado.
+    -->
+
+    <!-- Tailwind CSS Browser Build v4.1.7 — Hash verificado -->
+    <script
+        src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.1.7/dist/index.global.js"
+        integrity="sha384-VvC4TMG9RMvzPM9UKRYpGbP8G/4qVHiSANfgSa0qX+d3QGIXX3wB8KIuBmCU8fjZ"
+        crossorigin="anonymous"
+        defer
+    ></script>
+
+    <!-- html2pdf.js v0.10.1 — Hash verificado -->
+    <script
+        src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"
+        integrity="sha384-Yv5O+t3uE3hunW8uyrbpPW3iw6/5/Y7HitWJBLgqfMoA36NogMmy+8wWZMpn3HWc"
+        crossorigin="anonymous"
+        defer
+    ></script>
+
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+
+        /* Toggle switch */
+        .toggle-input:checked ~ .toggle-track { background-color: #10B981; }
+        .toggle-input:checked ~ .toggle-thumb { transform: translateX(1.5rem); }
+        #toggle-inv:checked ~ .toggle-track  { background-color: #3B82F6; }
+
+        /* Modal overlay */
+        #legal-modal {
+            display: flex;
+            position: fixed; inset: 0; z-index: 9999;
+            background: rgba(0,0,0,0.70);
+            backdrop-filter: blur(4px);
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+        #legal-modal.hidden { display: none; }
+
+        /* Invoice preview */
+        .invoice-box {
+            background: white;
+            box-shadow: 0 4px 24px 0 rgba(0,0,0,0.10);
+        }
+        .pdf-export {
+            padding: 40px !important;
+            border: none !important;
+            box-shadow: none !important;
+        }
+
+        /* Smooth section transitions */
+        .section-fade {
+            transition: opacity 0.25s ease, transform 0.25s ease;
+        }
+        .section-fade.hidden-section {
+            opacity: 0;
+            pointer-events: none;
+            height: 0;
+            overflow: hidden;
+            margin: 0;
+            padding: 0;
+        }
+    </style>
+</head>
+<body class="text-gray-800 flex flex-col min-h-screen pb-16">
+
+    <!-- ═══════════════════════════════════════════════════════════
+         MODAL DE AVISO LEGAL (bloqueante — primera visita)
+    ═══════════════════════════════════════════════════════════ -->
+    <div id="legal-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <div class="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-8 border border-gray-200">
+            <div class="flex items-center gap-3 mb-5">
+                <span class="text-4xl">⚠️</span>
+                <h2 id="modal-title" class="text-xl font-extrabold text-gray-900 leading-tight">AVISO LEGAL IMPORTANTE</h2>
+            </div>
+            <p class="text-sm text-gray-600 leading-relaxed mb-6">
+                Esta herramienta genera <strong>únicamente Facturas Proformas</strong> con fines informativos y comerciales de carácter internacional. <strong>No posee validez fiscal local</strong> ni reemplaza las obligaciones tributarias de entes como el <em>SAT, DIAN, AFIP</em>, etc.
+            </p>
+            <p class="text-sm text-gray-600 leading-relaxed mb-8">
+                Al continuar, usted acepta que el desarrollador <strong>no se hace responsable del uso contable o penal</strong> de los documentos generados.
+            </p>
+            <div class="flex flex-col gap-3">
+                <button
+                    id="btn-accept-legal"
+                    class="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold py-3 px-6 rounded-xl shadow-md transition-colors duration-200 focus:outline-none focus:ring-4 focus:ring-blue-300"
+                >
+                    ✅ He leído y acepto los términos
+                </button>
+                <p class="text-xs text-gray-400 text-center">Esta advertencia no volverá a aparecer en futuras visitas.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         CONTENIDO PRINCIPAL
+    ═══════════════════════════════════════════════════════════ -->
+    <div class="flex-grow max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 w-full">
+
+        <header class="mb-8 text-center mt-6">
+            <h1 class="text-4xl font-extrabold text-gray-900 tracking-tight">Sistema Financiero Todo-en-Uno</h1>
+            <p class="text-gray-500 mt-3 text-lg mb-6">Calcula tu tarifa ideal y genera facturas profesionales en PDF al instante.</p>
+
+            <!-- Toggles Modulares -->
+            <div class="flex flex-col sm:flex-row justify-center items-center gap-6 mb-6">
+
+                <!-- Toggle Calculadora -->
+                <label class="flex items-center cursor-pointer gap-3" id="label-toggle-calc">
+                    <span class="relative inline-flex items-center w-14 h-8">
+                        <input type="checkbox" id="toggle-calc" class="toggle-input sr-only" checked>
+                        <span class="toggle-track absolute inset-0 bg-gray-300 rounded-full transition-colors duration-300"></span>
+                        <span class="toggle-thumb absolute left-1 top-1 bg-white w-6 h-6 rounded-full shadow transition-transform duration-300"></span>
+                    </span>
+                    <span class="text-gray-700 font-semibold text-lg">Usar Calculadora</span>
+                </label>
+
+                <!-- Toggle Facturadora -->
+                <label class="flex items-center cursor-pointer gap-3" id="label-toggle-inv">
+                    <span class="relative inline-flex items-center w-14 h-8">
+                        <input type="checkbox" id="toggle-inv" class="toggle-input sr-only" checked>
+                        <span class="toggle-track absolute inset-0 bg-gray-300 rounded-full transition-colors duration-300"></span>
+                        <span class="toggle-thumb absolute left-1 top-1 bg-white w-6 h-6 rounded-full shadow transition-transform duration-300"></span>
+                    </span>
+                    <span class="text-gray-700 font-semibold text-lg">Usar Facturadora</span>
+                </label>
+            </div>
+
+            <!-- Botón Reiniciar -->
+            <div class="flex justify-center">
+                <button
+                    id="btn-reset"
+                    class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-5 rounded-xl shadow-sm transition-colors duration-200 flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-gray-400"
+                >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                    </svg>
+                    🔄 Nueva Simulación / Limpiar Datos
+                </button>
+            </div>
+        </header>
+
+        <!-- Grid Principal -->
+        <div id="main-grid" class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+
+            <!-- COLUMNA IZQUIERDA -->
+            <div id="left-col" class="lg:col-span-5 space-y-8">
+
+                <!-- Sección Calculadora -->
+                <section id="sec-calc" class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 section-fade">
+                    <h2 class="text-xl font-bold mb-5 text-emerald-600 flex items-center gap-2">
+                        <svg class="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/>
+                        </svg>
+                        Calculadora de Presupuesto
+                    </h2>
+                    <div class="space-y-4">
+                        <div>
+                            <label for="calc-salary" class="block text-sm font-semibold text-gray-700 mb-1">Salario Mensual Deseado ($)</label>
+                            <input type="number" id="calc-salary" min="0" class="block w-full rounded-lg border border-gray-300 bg-gray-50 text-gray-900 p-2.5 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none transition" value="3000">
+                        </div>
+                        <div>
+                            <label for="calc-expenses" class="block text-sm font-semibold text-gray-700 mb-1">Gastos Fijos Mensuales ($)</label>
+                            <input type="number" id="calc-expenses" min="0" class="block w-full rounded-lg border border-gray-300 bg-gray-50 text-gray-900 p-2.5 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none transition" value="500">
+                        </div>
+                        <div>
+                            <label for="calc-hours" class="block text-sm font-semibold text-gray-700 mb-1">Horas Facturables por Semana</label>
+                            <input type="number" id="calc-hours" min="1" class="block w-full rounded-lg border border-gray-300 bg-gray-50 text-gray-900 p-2.5 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 outline-none transition" value="30">
+                        </div>
+                        <div class="pt-3 border-t border-gray-100">
+                            <div class="flex justify-between items-center bg-emerald-50 p-5 rounded-xl border border-emerald-100">
+                                <span class="text-sm font-semibold text-emerald-800">Tarifa Mínima Sugerida:</span>
+                                <span class="text-3xl font-extrabold text-emerald-600" id="calc-result">$0.00</span>
+                            </div>
+                            <p class="text-xs text-gray-400 mt-3 text-center italic">
+                                Fórmula: (Salario + Gastos) ÷ (Horas/semana × 4.33 semanas/mes)
+                            </p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Sección Formulario Factura -->
+                <section id="sec-inv-form" class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 section-fade">
+                    <h2 class="text-xl font-bold mb-5 text-blue-600 flex items-center gap-2">
+                        <svg class="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                        </svg>
+                        Datos de la Factura Proforma
+                    </h2>
+                    <div class="space-y-4">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label for="inv-my-name" class="block text-sm font-medium text-gray-700 mb-1">Tu Nombre / Empresa</label>
+                                <input type="text" id="inv-my-name" maxlength="120" class="block w-full rounded-lg border border-gray-300 bg-gray-50 p-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition" value="Juan Pérez">
+                            </div>
+                            <div>
+                                <label for="inv-my-email" class="block text-sm font-medium text-gray-700 mb-1">Tu Email / Contacto</label>
+                                <input type="text" id="inv-my-email" maxlength="120" class="block w-full rounded-lg border border-gray-300 bg-gray-50 p-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition" value="contacto@juanperez.com">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label for="inv-client-name" class="block text-sm font-medium text-gray-700 mb-1">Cliente / Empresa</label>
+                                <input type="text" id="inv-client-name" maxlength="120" class="block w-full rounded-lg border border-gray-300 bg-gray-50 p-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition" value="Empresa XYZ">
+                            </div>
+                            <div>
+                                <label for="inv-client-email" class="block text-sm font-medium text-gray-700 mb-1">Email Cliente</label>
+                                <input type="text" id="inv-client-email" maxlength="120" class="block w-full rounded-lg border border-gray-300 bg-gray-50 p-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition" value="finanzas@xyz.com">
+                            </div>
+                        </div>
+
+                        <!-- Items dinámicos -->
+                        <div class="mt-4 border-t border-gray-100 pt-4">
+                            <h3 class="text-sm font-bold text-gray-700 mb-3">Servicios a facturar</h3>
+                            <div id="inv-items-container" class="space-y-3"></div>
+                            <button type="button" id="btn-add-item" class="mt-3 text-sm bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold py-2 px-4 rounded-lg border border-blue-200 transition-colors w-full flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-blue-300">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                                Añadir otra fila de servicio
+                            </button>
+                        </div>
+
+                        <!-- IVA -->
+                        <div class="grid grid-cols-2 gap-4 pt-2 border-t border-gray-100">
+                            <div class="col-start-2">
+                                <label for="inv-tax" class="block text-sm font-medium text-gray-700 mb-1">IVA / Tax (%)</label>
+                                <input type="number" id="inv-tax" min="0" max="100" class="block w-full rounded-lg border border-gray-300 bg-gray-50 p-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition" value="16">
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- COLUMNA DERECHA: VISTA PREVIA PDF -->
+            <div id="sec-inv-preview" class="lg:col-span-7 section-fade">
+                <div class="sticky top-6">
+                    <div class="flex flex-col sm:flex-row justify-between items-center mb-4 gap-3">
+                        <h2 class="text-xl font-bold text-gray-800">Vista Previa del Documento</h2>
+                        <button
+                            id="download-btn"
+                            class="bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold py-2.5 px-5 rounded-xl shadow-md transition-colors flex items-center gap-2 focus:outline-none focus:ring-4 focus:ring-blue-300"
+                        >
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                            </svg>
+                            Descargar PDF
+                        </button>
+                    </div>
+
+                    <div id="invoice-preview" class="invoice-box p-10 rounded-2xl border border-gray-200 flex flex-col min-h-[820px]">
+                        <div class="flex-grow">
+                            <!-- Encabezado del documento -->
+                            <div class="flex justify-between items-start border-b-2 border-gray-100 pb-8 mb-8">
+                                <div class="max-w-[60%]">
+                                    <p class="text-4xl font-black text-gray-900 tracking-tight leading-none">FACTURA PROFORMA</p>
+                                    <p class="text-lg font-bold text-gray-400 mt-1">PAYMENT REQUEST</p>
+                                    <p class="text-sm text-gray-500 mt-4 font-medium" id="preview-date"></p>
+                                    <p class="text-sm text-gray-500 font-medium" id="preview-invoice-no"></p>
+                                </div>
+                                <div class="text-right">
+                                    <p class="text-xl font-bold text-gray-800" id="preview-my-name">Tu Nombre</p>
+                                    <p class="text-sm text-gray-500 mt-1" id="preview-my-email">tu@email.com</p>
+                                </div>
+                            </div>
+
+                            <!-- Datos del cliente -->
+                            <div class="mb-8">
+                                <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Facturar a:</p>
+                                <p class="text-lg font-bold text-gray-800" id="preview-client-name">Nombre del Cliente</p>
+                                <p class="text-sm text-gray-500 mt-1" id="preview-client-email">cliente@email.com</p>
+                            </div>
+
+                            <!-- Tabla de servicios -->
+                            <table class="w-full text-left mb-8" id="preview-table">
+                                <thead>
+                                    <tr class="border-b-2 border-gray-200 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                                        <th class="py-3 pr-4 w-1/2">Descripción del Servicio</th>
+                                        <th class="py-3 text-center">Cant/Hrs</th>
+                                        <th class="py-3 text-right">Precio Unitario</th>
+                                        <th class="py-3 text-right">Subtotal</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="preview-tbody"></tbody>
+                            </table>
+
+                            <!-- Totales -->
+                            <div class="flex justify-end">
+                                <div class="w-full sm:w-2/3 lg:w-3/5">
+                                    <div class="flex justify-between py-2 text-sm text-gray-600 border-b border-gray-100">
+                                        <span>Subtotal Base</span>
+                                        <span id="preview-subtotal" class="font-semibold">$0.00</span>
+                                    </div>
+                                    <div class="flex justify-between py-2 text-sm text-gray-600 border-b border-gray-100">
+                                        <span>IVA / Tax (<span id="preview-tax-rate">16</span>%)</span>
+                                        <span id="preview-tax-amount" class="font-semibold">$0.00</span>
+                                    </div>
+                                    <div class="flex justify-between py-4 text-2xl font-black text-gray-900">
+                                        <span>TOTAL</span>
+                                        <span id="preview-total" class="text-blue-600">$0.00</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Pie legal del PDF -->
+                        <div class="mt-8 pt-5 border-t border-gray-200">
+                            <p class="text-[10px] text-gray-400 leading-relaxed text-justify">
+                                ⚠️ <strong>CLÁUSULA LEGAL DE USO LIBRE:</strong> Este documento es una Factura Proforma de carácter informativo y comercial para la solicitud de pagos internacionales. No constituye una factura fiscal local ni un documento contable oficial bajo las regulaciones de la DIAN, SAT, AFIP u otros entes tributarios de LATAM. El emisor es responsable de declarar estos ingresos en su respectivo país.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer Legal de la Aplicación -->
+    <footer class="mt-auto bg-gray-800 text-gray-400 py-7 px-4 w-full">
+        <div class="max-w-4xl mx-auto text-center">
+            <p class="text-xs leading-relaxed">
+                ⚠️ <strong>CLÁUSULA LEGAL DE USO LIBRE:</strong> Este documento generado es una Factura Proforma de carácter informativo y comercial para la solicitud de pagos internacionales. No constituye una factura fiscal local ni un documento contable oficial bajo las regulaciones de la DIAN, SAT, AFIP u otros entes tributarios de LATAM. El emisor es responsable de declarar estos ingresos en su respectivo país.
+            </p>
+        </div>
+    </footer>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         LÓGICA DE APLICACIÓN
+         — Segura, persistente y sanitizada —
+    ═══════════════════════════════════════════════════════════ -->
+    <script>
+    'use strict';
+
+    // ─── CONSTANTES ──────────────────────────────────────────────
+    var LS_KEY_STATE   = 'freelancer_app_state_v2';
+    var LS_KEY_LEGAL   = 'freelancer_legal_accepted_v1';
+    var WEEKLY_FACTOR  = 4.33;
+
+    // ─── SANITIZACIÓN XSS ────────────────────────────────────────
+    // Convierte cualquier string a texto plano seguro antes de insertarlo en el DOM.
+    function sanitize(str) {
+        if (typeof str !== 'string') { str = String(str || ''); }
+        var map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '/': '&#x2F;' };
+        return str.replace(/[&<>"'/]/g, function(s) { return map[s]; });
+    }
+
+    // Número seguro o 0
+    function safeNum(val) {
+        var n = parseFloat(val);
+        return isFinite(n) ? n : 0;
+    }
+
+    // Formato moneda
+    var formatter = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
+    function fmtCurrency(n) { return formatter.format(n); }
+
+    // ─── ESTADO GLOBAL ───────────────────────────────────────────
+    var state = {
+        calcSalary   : 3000,
+        calcExpenses : 500,
+        calcHours    : 30,
+        myName       : 'Juan Pérez',
+        myEmail      : 'contacto@juanperez.com',
+        clientName   : 'Empresa XYZ',
+        clientEmail  : 'finanzas@xyz.com',
+        tax          : 16,
+        useCalc      : true,
+        useInv       : true,
+        items        : [
+            { id: 1, desc: 'Desarrollo de Aplicación Web (Sprint 1)', rate: 0, hours: 40 }
+        ]
+    };
+
+    var suggestedRate = 0;
+
+    // ─── localStorage ────────────────────────────────────────────
+    function saveState() {
+        try {
+            localStorage.setItem(LS_KEY_STATE, JSON.stringify(state));
+        } catch(e) { /* silencioso si storage está bloqueado */ }
+    }
+
+    function loadState() {
+        try {
+            var raw = localStorage.getItem(LS_KEY_STATE);
+            if (!raw) { return false; }
+            var parsed = JSON.parse(raw);
+            // Validación de estructura básica
+            if (typeof parsed === 'object' && parsed !== null && Array.isArray(parsed.items)) {
+                state = parsed;
+                return true;
+            }
+        } catch(e) { /* ignorar JSON malformado */ }
+        return false;
+    }
+
+    function clearState() {
+        try {
+            localStorage.removeItem(LS_KEY_STATE);
+        } catch(e) {}
+    }
+
+    // ─── MODAL LEGAL ─────────────────────────────────────────────
+    function checkLegalAcceptance() {
+        var accepted = localStorage.getItem(LS_KEY_LEGAL);
+        var modal = document.getElementById('legal-modal');
+        if (accepted === '1') {
+            modal.classList.add('hidden');
+        }
+        document.getElementById('btn-accept-legal').addEventListener('click', function() {
+            try { localStorage.setItem(LS_KEY_LEGAL, '1'); } catch(e) {}
+            modal.classList.add('hidden');
+        });
+    }
+
+    // ─── REFERENCIAS DOM ─────────────────────────────────────────
+    var dom = {};
+
+    function cacheDom() {
+        dom.toggleCalc    = document.getElementById('toggle-calc');
+        dom.toggleInv     = document.getElementById('toggle-inv');
+        dom.secCalc       = document.getElementById('sec-calc');
+        dom.secInvForm    = document.getElementById('sec-inv-form');
+        dom.secInvPreview = document.getElementById('sec-inv-preview');
+        dom.leftCol       = document.getElementById('left-col');
+        dom.mainGrid      = document.getElementById('main-grid');
+
+        dom.calcSalary    = document.getElementById('calc-salary');
+        dom.calcExpenses  = document.getElementById('calc-expenses');
+        dom.calcHours     = document.getElementById('calc-hours');
+        dom.calcResult    = document.getElementById('calc-result');
+
+        dom.invMyName     = document.getElementById('inv-my-name');
+        dom.invMyEmail    = document.getElementById('inv-my-email');
+        dom.invClientName = document.getElementById('inv-client-name');
+        dom.invClientEmail= document.getElementById('inv-client-email');
+        dom.invTax        = document.getElementById('inv-tax');
+        dom.itemsContainer= document.getElementById('inv-items-container');
+        dom.btnAddItem    = document.getElementById('btn-add-item');
+        dom.btnReset      = document.getElementById('btn-reset');
+        dom.downloadBtn   = document.getElementById('download-btn');
+
+        dom.pDate         = document.getElementById('preview-date');
+        dom.pInvoiceNo    = document.getElementById('preview-invoice-no');
+        dom.pMyName       = document.getElementById('preview-my-name');
+        dom.pMyEmail      = document.getElementById('preview-my-email');
+        dom.pClientName   = document.getElementById('preview-client-name');
+        dom.pClientEmail  = document.getElementById('preview-client-email');
+        dom.previewTbody  = document.getElementById('preview-tbody');
+        dom.pSubtotal     = document.getElementById('preview-subtotal');
+        dom.pTaxRate      = document.getElementById('preview-tax-rate');
+        dom.pTaxAmount    = document.getElementById('preview-tax-amount');
+        dom.pTotal        = document.getElementById('preview-total');
+    }
+
+    // ─── RELLENAR FORMULARIO DESDE ESTADO ────────────────────────
+    function populateFormFromState() {
+        dom.calcSalary.value     = state.calcSalary;
+        dom.calcExpenses.value   = state.calcExpenses;
+        dom.calcHours.value      = state.calcHours;
+        dom.invMyName.value      = state.myName;
+        dom.invMyEmail.value     = state.myEmail;
+        dom.invClientName.value  = state.clientName;
+        dom.invClientEmail.value = state.clientEmail;
+        dom.invTax.value         = state.tax;
+        dom.toggleCalc.checked   = state.useCalc;
+        dom.toggleInv.checked    = state.useInv;
+    }
+
+    // ─── METADATA DE FACTURA ─────────────────────────────────────
+    function setInvoiceMetadata() {
+        var today = new Date();
+        dom.pDate.textContent      = 'Fecha: ' + today.toLocaleDateString('es-ES', { year:'numeric', month:'2-digit', day:'2-digit' });
+        dom.pInvoiceNo.textContent = 'Factura #: ' + (Math.floor(Math.random() * 90000) + 10000);
+    }
+
+    // ─── RENDERIZAR FILAS DEL FORMULARIO ─────────────────────────
+    function renderFormItems() {
+        dom.itemsContainer.innerHTML = '';
+        var calcOn = state.useCalc;
+
+        state.items.forEach(function(item, index) {
+            var isLockedRate = (index === 0 && calcOn);
+            var rateExtra    = isLockedRate ? 'readonly class="block w-full rounded-md border border-gray-200 bg-gray-100 text-gray-500 text-sm p-2 cursor-not-allowed item-rate"' :
+                                              'class="block w-full rounded-md border border-gray-300 bg-white text-gray-900 text-sm p-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition item-rate"';
+
+            var row = document.createElement('div');
+            row.className = 'grid grid-cols-12 gap-2 items-end p-3 rounded-xl bg-gray-50 border border-gray-200';
+
+            // Usamos textContent / value para insertar datos — no innerHTML con datos de usuario
+            row.innerHTML =
+                '<div class="col-span-12 sm:col-span-5">' +
+                    '<label class="block text-xs font-semibold text-gray-600 mb-1">Descripción</label>' +
+                    '<input type="text" maxlength="200" ' +
+                        'class="block w-full rounded-md border border-gray-300 bg-white text-sm p-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition item-desc" ' +
+                        'data-id="' + item.id + '">' +
+                '</div>' +
+                '<div class="col-span-4 sm:col-span-3">' +
+                    '<label class="block text-xs font-semibold text-gray-600 mb-1">Precio/Unitario</label>' +
+                    '<input type="number" min="0" ' + rateExtra + ' data-id="' + item.id + '">' +
+                '</div>' +
+                '<div class="col-span-4 sm:col-span-2">' +
+                    '<label class="block text-xs font-semibold text-gray-600 mb-1">Cant/Hrs</label>' +
+                    '<input type="number" min="0" ' +
+                        'class="block w-full rounded-md border border-gray-300 bg-white text-sm p-2 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition item-hours" ' +
+                        'data-id="' + item.id + '">' +
+                '</div>' +
+                '<div class="col-span-4 sm:col-span-2 flex justify-end pb-1">' +
+                    '<button type="button" class="remove-item-btn text-red-400 hover:text-red-600 transition-colors p-1 text-lg" data-id="' + item.id + '" title="Eliminar fila">❌</button>' +
+                '</div>';
+
+            dom.itemsContainer.appendChild(row);
+
+            // Asignar valores de forma segura (por .value, nunca innerHTML)
+            var descInput  = row.querySelector('.item-desc');
+            var rateInput  = row.querySelector('.item-rate');
+            var hoursInput = row.querySelector('.item-hours');
+
+            descInput.value  = item.desc;
+            rateInput.value  = item.rate;
+            hoursInput.value = item.hours;
+
+            // Listeners por fila
+            descInput.addEventListener('input', function() {
+                item.desc = this.value;
+                updateInvoicePreview();
+                saveState();
+            });
+            if (!isLockedRate) {
+                rateInput.addEventListener('input', function() {
+                    item.rate = safeNum(this.value);
+                    updateInvoicePreview();
+                    saveState();
+                });
+            }
+            hoursInput.addEventListener('input', function() {
+                item.hours = safeNum(this.value);
+                updateInvoicePreview();
+                saveState();
+            });
+
+            row.querySelector('.remove-item-btn').addEventListener('click', function() {
+                if (state.items.length === 1) { alert('La factura debe tener al menos un servicio.'); return; }
+                var id = parseInt(this.getAttribute('data-id'), 10);
+                state.items = state.items.filter(function(i) { return i.id !== id; });
+                renderFormItems();
+                updateInvoicePreview();
+                saveState();
+            });
+        });
+    }
+
+    // ─── LAYOUT MODULAR ──────────────────────────────────────────
+    function updateLayout() {
+        var calcOn = state.useCalc;
+        var invOn  = state.useInv;
+
+        dom.secCalc.style.display = calcOn ? 'block' : 'none';
+
+        if (invOn) {
+            dom.secInvForm.style.display    = 'block';
+            dom.secInvPreview.style.display = 'block';
+            dom.mainGrid.className = 'grid grid-cols-1 lg:grid-cols-12 gap-8';
+            dom.leftCol.className  = 'lg:col-span-5 space-y-8';
+        } else {
+            dom.secInvForm.style.display    = 'none';
+            dom.secInvPreview.style.display = 'none';
+            dom.mainGrid.className = 'grid grid-cols-1 gap-8';
+            dom.leftCol.className  = 'max-w-2xl mx-auto w-full space-y-8';
+        }
+
+        renderFormItems();
+        if (calcOn) { updateCalculator(); } else { updateInvoicePreview(); }
+    }
+
+    // ─── CALCULADORA ─────────────────────────────────────────────
+    function updateCalculator() {
+        var salary   = safeNum(dom.calcSalary.value);
+        var expenses = safeNum(dom.calcExpenses.value);
+        var hours    = safeNum(dom.calcHours.value) || 1;
+
+        suggestedRate = (salary + expenses) / (hours * WEEKLY_FACTOR);
+        dom.calcResult.textContent = fmtCurrency(suggestedRate);
+
+        // Pre-cargar primera fila si la calculadora está activa
+        if (state.useCalc && state.items.length > 0) {
+            state.items[0].rate = suggestedRate;
+            var firstRate = dom.itemsContainer.querySelector('.item-rate');
+            if (firstRate) { firstRate.value = suggestedRate.toFixed(2); }
+        }
+
+        state.calcSalary   = safeNum(dom.calcSalary.value);
+        state.calcExpenses = safeNum(dom.calcExpenses.value);
+        state.calcHours    = safeNum(dom.calcHours.value);
+
+        updateInvoicePreview();
+        saveState();
+    }
+
+    // ─── VISTA PREVIA FACTURA ────────────────────────────────────
+    function updateInvoicePreview() {
+        // Textos generales — sanitizados con textContent (es seguro por definición)
+        dom.pMyName.textContent     = state.myName     || 'Tu Nombre';
+        dom.pMyEmail.textContent    = state.myEmail    || 'tu@email.com';
+        dom.pClientName.textContent = state.clientName || 'Nombre del Cliente';
+        dom.pClientEmail.textContent= state.clientEmail|| 'cliente@email.com';
+
+        var tax = safeNum(state.tax);
+        dom.pTaxRate.textContent = tax;
+        dom.previewTbody.innerHTML = '';
+
+        var globalSubtotal = 0;
+
+        state.items.forEach(function(item) {
+            var amount = safeNum(item.rate) * safeNum(item.hours);
+            globalSubtotal += amount;
+
+            var tr = document.createElement('tr');
+            tr.className = 'border-b border-gray-100';
+
+            // Celdas — usamos textContent para evitar cualquier XSS
+            var tdDesc  = document.createElement('td');
+            var tdHours = document.createElement('td');
+            var tdRate  = document.createElement('td');
+            var tdAmt   = document.createElement('td');
+
+            tdDesc.className  = 'py-4 pr-4 text-gray-800 font-medium break-words align-top';
+            tdHours.className = 'py-4 text-center text-gray-600 align-top';
+            tdRate.className  = 'py-4 text-right text-gray-600 align-top';
+            tdAmt.className   = 'py-4 text-right text-gray-800 font-bold align-top';
+
+            tdDesc.textContent  = item.desc  || 'Servicio';
+            tdHours.textContent = item.hours || 0;
+            tdRate.textContent  = fmtCurrency(safeNum(item.rate));
+            tdAmt.textContent   = fmtCurrency(amount);
+
+            tr.appendChild(tdDesc);
+            tr.appendChild(tdHours);
+            tr.appendChild(tdRate);
+            tr.appendChild(tdAmt);
+            dom.previewTbody.appendChild(tr);
+        });
+
+        var taxAmount = globalSubtotal * (tax / 100);
+        var total     = globalSubtotal + taxAmount;
+
+        dom.pSubtotal.textContent  = fmtCurrency(globalSubtotal);
+        dom.pTaxAmount.textContent = fmtCurrency(taxAmount);
+        dom.pTotal.textContent     = fmtCurrency(total);
+    }
+
+    // ─── RESET ───────────────────────────────────────────────────
+    function resetApp() {
+        if (!confirm('¿Confirmas que deseas borrar todos los datos y empezar de nuevo?')) { return; }
+
+        clearState();
+
+        state = {
+            calcSalary   : 0,
+            calcExpenses : 0,
+            calcHours    : 0,
+            myName       : '',
+            myEmail      : '',
+            clientName   : '',
+            clientEmail  : '',
+            tax          : 16,
+            useCalc      : true,
+            useInv       : true,
+            items        : [{ id: Date.now(), desc: '', rate: 0, hours: 0 }]
+        };
+
+        populateFormFromState();
+        setInvoiceMetadata();
+        suggestedRate = 0;
+        dom.calcResult.textContent = '$0.00';
+        updateLayout();
+    }
+
+    // ─── DESCARGA PDF ────────────────────────────────────────────
+    function downloadPDF() {
+        var element = document.getElementById('invoice-preview');
+        element.classList.add('pdf-export');
+
+        var clientRaw  = state.clientName || 'Cliente';
+        var clientSafe = clientRaw.replace(/[^a-zA-Z0-9\-_\u00C0-\u024F]/g, '_').substring(0, 20);
+
+        var opt = {
+            margin      : 0,
+            filename    : 'Factura_Proforma_' + clientSafe + '.pdf',
+            image       : { type: 'jpeg', quality: 1 },
+            html2canvas : { scale: 2, useCORS: true, logging: false },
+            jsPDF       : { unit: 'in', format: 'letter', orientation: 'portrait' }
+        };
+
+        html2pdf().set(opt).from(element).save().then(function() {
+            element.classList.remove('pdf-export');
+        });
+    }
+
+    // ─── REGISTRO DE EVENTOS GLOBALES ────────────────────────────
+    function attachGlobalListeners() {
+        // Toggles
+        dom.toggleCalc.addEventListener('change', function() {
+            state.useCalc = this.checked;
+            saveState();
+            updateLayout();
+        });
+        dom.toggleInv.addEventListener('change', function() {
+            state.useInv = this.checked;
+            saveState();
+            updateLayout();
+        });
+
+        // Calculadora
+        dom.calcSalary.addEventListener('input', updateCalculator);
+        dom.calcExpenses.addEventListener('input', updateCalculator);
+        dom.calcHours.addEventListener('input', updateCalculator);
+
+        // Metadatos de factura
+        dom.invMyName.addEventListener('input', function() {
+            state.myName = this.value;
+            updateInvoicePreview(); saveState();
+        });
+        dom.invMyEmail.addEventListener('input', function() {
+            state.myEmail = this.value;
+            updateInvoicePreview(); saveState();
+        });
+        dom.invClientName.addEventListener('input', function() {
+            state.clientName = this.value;
+            updateInvoicePreview(); saveState();
+        });
+        dom.invClientEmail.addEventListener('input', function() {
+            state.clientEmail = this.value;
+            updateInvoicePreview(); saveState();
+        });
+        dom.invTax.addEventListener('input', function() {
+            state.tax = safeNum(this.value);
+            updateInvoicePreview(); saveState();
+        });
+
+        // Añadir ítem
+        dom.btnAddItem.addEventListener('click', function() {
+            state.items.push({ id: Date.now(), desc: '', rate: 0, hours: 1 });
+            renderFormItems();
+            updateInvoicePreview();
+            saveState();
+        });
+
+        // Resetear
+        dom.btnReset.addEventListener('click', resetApp);
+
+        // Descargar PDF
+        dom.downloadBtn.addEventListener('click', downloadPDF);
+    }
+
+    // ─── INICIALIZACIÓN ──────────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', function() {
+        cacheDom();
+        checkLegalAcceptance();
+
+        var restored = loadState();
+        if (!restored) {
+            // Primer uso: asegurarse de que el ítem inicial tenga un ID único
+            state.items[0].id = Date.now();
+        }
+
+        populateFormFromState();
+        setInvoiceMetadata();
+        attachGlobalListeners();
+        updateLayout(); // Renderiza todo el estado inicial
+    });
+    </script>
+</body>
+</html>
