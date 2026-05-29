@@ -3,7 +3,7 @@
 Una aplicación web de interfaz única (*Single-File Architecture*) diseñada específicamente para profesionales independientes en Latinoamérica y el ámbito internacional. Esta herramienta permite gestionar todo el ciclo financiero de un proyecto de forma local, segura y privada.
 
 ## 🚀 ¡Pruébala en vivo ya mismo!
-👉 **[Haz clic aquí para abrir la aplicación en producción](https://github.io)**
+👉 **[Haz clic aquí para abrir la aplicación en producción](https://landirianositeoficial-pro.github.io/MI-FACTURADORAFREELANCER/)**
 
 ## 🌟 Características Principales
 *   **🧮 Calculadora de Tarifa Inteligente:** Deduce tu tarifa por hora basándose en salario deseado, gastos fijos y horas semanales reales (bajo estándar de 4.33 semanas al mes).
