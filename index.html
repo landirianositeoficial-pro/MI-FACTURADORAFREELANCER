@@ -24,15 +24,8 @@
         crossorigin="anonymous"
         defer
     ></script>
-
-    <!-- html2pdf.js v0.10.1 — Hash verificado -->
-    <script
-        src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"
-        integrity="sha384-Yv5O+t3uE3hunW8uyrbpPW3iw6/5/Y7HitWJBLgqfMoA36NogMmy+8wWZMpn3HWc"
-        crossorigin="anonymous"
-        defer
-    ></script>
-
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.1/jspdf.plugin.autotable.min.js"></script>
     <style>
         body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
 
@@ -96,13 +89,13 @@
                 Al continuar, usted acepta que el desarrollador <strong>no se hace responsable del uso contable o penal</strong> de los documentos generados.
             </p>
             <div class="flex flex-col gap-3">
-                <button
+<button
                     id="btn-accept-legal"
+                    onclick="localStorage.setItem('freelancer_legal_accepted_v1', '1'); document.getElementById('legal-modal').style.display='none'; location.reload();"
                     class="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold py-3 px-6 rounded-xl shadow-md transition-colors duration-200 focus:outline-none focus:ring-4 focus:ring-blue-300"
                 >
                     ✅ He leído y acepto los términos
-                </button>
-                <p class="text-xs text-gray-400 text-center">Esta advertencia no volverá a aparecer en futuras visitas.</p>
+                </button>                <p class="text-xs text-gray-400 text-center">Esta advertencia no volverá a aparecer en futuras visitas.</p>
             </div>
         </div>
     </div>
@@ -689,25 +682,116 @@
     }
 
     // ─── DESCARGA PDF ────────────────────────────────────────────
-    function downloadPDF() {
-        var element = document.getElementById('invoice-preview');
-        element.classList.add('pdf-export');
+function downloadPDF() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
 
-        var clientRaw  = state.clientName || 'Cliente';
-        var clientSafe = clientRaw.replace(/[^a-zA-Z0-9\-_\u00C0-\u024F]/g, '_').substring(0, 20);
+    // Obtener datos sanitizados de la UI
+    const myName = document.getElementById('inv-my-name')?.value || 'Mi Nombre';
+    const myEmail = document.getElementById('inv-my-email')?.value || 'mi@email.com';
+    const clientName = document.getElementById('inv-client-name')?.value || 'Cliente';
+    const clientEmail = document.getElementById('inv-client-email')?.value || 'cliente@email.com';
+    const invoiceNo = (document.getElementById('preview-invoice-no')?.textContent || '001').replace('Factura #: ', '');
+    
+    const subtotalText = document.getElementById('preview-subtotal')?.textContent || '$0.00';
+    const taxRateText = document.getElementById('preview-tax-rate')?.textContent || '16';
+    const taxAmountText = document.getElementById('preview-tax-amount')?.textContent || '$0.00';
+    const totalText = document.getElementById('preview-total')?.textContent || '$0.00';
 
-        var opt = {
-            margin      : 0,
-            filename    : 'Factura_Proforma_' + clientSafe + '.pdf',
-            image       : { type: 'jpeg', quality: 1 },
-            html2canvas : { scale: 2, useCORS: true, logging: false },
-            jsPDF       : { unit: 'in', format: 'letter', orientation: 'portrait' }
-        };
+    // ─── DISEÑO DEL ENCABEZADO ───
+    doc.setFillColor(30, 41, 59); // Gris oscuro Slate-800 profesional
+    doc.rect(0, 0, 216, 35, 'F');
+    
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(22);
+    doc.text('FACTURA PROFORMA', 15, 18);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text('PAYMENT REQUEST / INTERNATIONALLY COMPLIANT', 15, 24);
 
-        html2pdf().set(opt).from(element).save().then(function() {
-            element.classList.remove('pdf-export');
-        });
-    }
+    // Datos del Emisor (Arriba a la derecha)
+    doc.setFont('helvetica', 'bold');
+    doc.text(myName.toUpperCase(), 200, 16, { align: 'right' });
+    doc.setFont('helvetica', 'normal');
+    doc.text(myEmail, 200, 22, { align: 'right' });
+
+    // ─── INFORMACIÓN DE DOCUMENTO Y CLIENTE ───
+    doc.setTextColor(51, 65, 85);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.text('DETALLES DEL DOCUMENTO:', 15, 48);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Referencia No: ' + invoiceNo, 15, 54);
+    doc.text('Fecha de Emisión: ' + new Date().toLocaleDateString(), 15, 59);
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('FACTURAR A / CLIENTE:', 110, 48);
+    doc.setFont('helvetica', 'normal');
+    doc.text(clientName, 110, 54);
+    doc.text(clientEmail, 110, 59);
+
+    // ─── EXTRACCIÓN Y RENDERIZADO DE LA TABLA ───
+    const tableRows = [];
+    const rows = document.querySelectorAll('#preview-tbody tr');
+    rows.forEach(row => {
+        const cells = row.querySelectorAll('td');
+        if (cells.length >= 4) {
+            tableRows.push([
+                cells[0].textContent.trim(), // Descripción
+                cells[1].textContent.trim(), // Cantidad
+                cells[2].textContent.trim(), // Precio Unitario
+                cells[3].textContent.trim()  // Subtotal fila
+            ]);
+        }
+    });
+
+    doc.autoTable({
+        startY: 68,
+        head: [['Descripción del Servicio / Concepto', 'Cant / Hrs', 'Precio Unitario', 'Subtotal']],
+        body: tableRows,
+        theme: 'striped',
+        headStyles: { fillColor: [59, 130, 246], textColor: 255, fontStyle: 'bold' },
+        styles: { font: 'helvetica', fontSize: 9, cellPadding: 3 },
+        columnStyles: { 0: { cellWidth: 95 }, 1: { halign: 'center' }, 2: { halign: 'right' }, 3: { halign: 'right' } }
+    });
+
+    // ─── SECCIÓN DE TOTALES ───
+    let finalY = doc.lastAutoTable.finalY + 10;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    
+    doc.text('Subtotal Base:', 140, finalY);
+    doc.text(subtotalText, 200, finalY, { align: 'right' });
+    
+    finalY += 6;
+    doc.text('IVA / Tax (' + taxRateText + '%):', 140, finalY);
+    doc.text(taxAmountText, 200, finalY, { align: 'right' });
+    
+    finalY += 8;
+    doc.setLineWidth(0.5);
+    doc.setDrawColor(203, 213, 225);
+    doc.line(140, finalY - 4, 200, finalY - 4);
+    
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.setTextColor(37, 99, 235); // Azul moderno para el total
+    doc.text('TOTAL DUE ($):', 140, finalY);
+    doc.text(totalText, 200, finalY, { align: 'right' });
+
+    // ─── CLÁUSULA LEGAL EN EL PIE DE PÁGINA ───
+    doc.setDrawColor(226, 232, 240);
+    doc.line(15, 255, 201, 255);
+    
+    doc.setTextColor(148, 163, 184);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    const legalText = "⚠️ CLÁUSULA LEGAL DE USO LIBRE: Este documento es una Factura Proforma de carácter informativo y comercial para la solicitud de pagos internacionales. No constituye una factura fiscal local ni un documento contable oficial bajo las regulaciones de la DIAN, SAT, AFIP u otros entes tributarios de LATAM. El emisor es responsable de declarar estos ingresos en su respectivo país.";
+    doc.text(legalText, 15, 260, { maxWidth: 186, align: 'justify' });
+
+    // Descarga inmediata
+    doc.save('Factura_Proforma_' + invoiceNo + '.pdf');
+}
 
     // ─── REGISTRO DE EVENTOS GLOBALES ────────────────────────────
     function attachGlobalListeners() {
@@ -779,11 +863,14 @@
         populateFormFromState();
         setInvoiceMetadata();
         attachGlobalListeners();
-        updateLayout(); // Renderiza todo el estado inicial
-        
-        // 🔥 AGREGA ESTAS DOS LÍNEAS AQUÍ PARA REPARAR EL $0.00:
-        calculateRate();         // Realiza la matemática de la calculadora de presupuesto
-        calculateInvoiceTotal(); // Realiza la matemática de los servicios e IVA de la factura
+        updateLayout(); // Renderiza layout, filas y dispara updateCalculator/updateInvoicePreview
+
+        // Forzar recálculo explícito tras restaurar estado desde localStorage
+        // Garantiza que los valores numéricos se muestren correctamente en pantalla desde el primer frame.
+        if (state.useCalc) {
+            updateCalculator();    // Recalcula tarifa sugerida y pre-carga primera fila
+        }
+        updateInvoicePreview();    // Recalcula subtotal, IVA y total de la factura
     });
     </script>
 </body>
