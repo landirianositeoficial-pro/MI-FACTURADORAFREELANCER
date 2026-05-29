@@ -780,6 +780,10 @@
         setInvoiceMetadata();
         attachGlobalListeners();
         updateLayout(); // Renderiza todo el estado inicial
+        
+        // 🔥 AGREGA ESTAS DOS LÍNEAS AQUÍ PARA REPARAR EL $0.00:
+        calculateRate();         // Realiza la matemática de la calculadora de presupuesto
+        calculateInvoiceTotal(); // Realiza la matemática de los servicios e IVA de la factura
     });
     </script>
 </body>
