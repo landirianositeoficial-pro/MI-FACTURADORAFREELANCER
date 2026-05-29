@@ -751,9 +751,18 @@ function downloadPDF() {
         head: [['Descripción del Servicio / Concepto', 'Cant / Hrs', 'Precio Unitario', 'Subtotal']],
         body: tableRows,
         theme: 'striped',
-        headStyles: { fillColor: [59, 130, 246], textColor: 255, fontStyle: 'bold' },
+        headStyles: { 
+            fillColor: [30, 41, 59],     // Gris oscuro Slate-800 elegante
+            textColor: [255, 255, 255],  // Letras blancas nítidas
+            fontStyle: 'bold' 
+        },
         styles: { font: 'helvetica', fontSize: 9, cellPadding: 3 },
-        columnStyles: { 0: { cellWidth: 95 }, 1: { halign: 'center' }, 2: { halign: 'right' }, 3: { halign: 'right' } }
+        columnStyles: { 
+            0: { cellWidth: 95 }, 
+            1: { halign: 'center' }, 
+            2: { halign: 'right' }, 
+            3: { halign: 'right' } 
+        }
     });
 
     // ─── SECCIÓN DE TOTALES ───
@@ -779,15 +788,20 @@ function downloadPDF() {
     doc.text('TOTAL DUE ($):', 140, finalY);
     doc.text(totalText, 200, finalY, { align: 'right' });
 
-    // ─── CLÁUSULA LEGAL EN EL PIE DE PÁGINA ───
-    doc.setDrawColor(226, 232, 240);
-    doc.line(15, 255, 201, 255);
+    // ─── CLÁUSULA LEGAL EN EL PIE DE PÁGINA (CORREGIDA) ───
+    doc.setDrawColor(203, 213, 225); // Línea gris clara muy fina
+    doc.setLineWidth(0.3);
+    doc.line(15, 245, 201, 245); // Dibujar línea divisoria limpia
     
-    doc.setTextColor(148, 163, 184);
+    doc.setTextColor(100, 116, 139); // Color gris Slate profesional
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7.5);
-    const legalText = "⚠️ CLÁUSULA LEGAL DE USO LIBRE: Este documento es una Factura Proforma de carácter informativo y comercial para la solicitud de pagos internacionales. No constituye una factura fiscal local ni un documento contable oficial bajo las regulaciones de la DIAN, SAT, AFIP u otros entes tributarios de LATAM. El emisor es responsable de declarar estos ingresos en su respectivo país.";
-    doc.text(legalText, 15, 260, { maxWidth: 186, align: 'justify' });
+    doc.setFontSize(8); // Tamaño pequeño y elegante para contratos
+    
+    // Texto en formato string puro sin dependencias del DOM ni emojis rotos
+    var legalTextClean = "CLAUSULA LEGAL DE USO LIBRE: Este documento es una Factura Proforma de caracter informativo y comercial para la solicitud de pagos internacionales. No constituye una factura fiscal local ni un documento contable oficial bajo las regulaciones de la DIAN, SAT, AFIP u otros entes tributarios de LATAM. El emisor es responsable de declarar estos ingresos en su respectivo pais.";
+    
+    // Renderizado justificado automático
+    doc.text(legalTextClean, 15, 252, { maxWidth: 186, align: 'justify' });
 
     // Descarga inmediata
     doc.save('Factura_Proforma_' + invoiceNo + '.pdf');
